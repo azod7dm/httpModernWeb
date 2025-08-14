@@ -1,10 +1,15 @@
 package ru.netology;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 public class Server {
     private final int port;
@@ -49,8 +54,39 @@ public class Server {
 
     // Реализация метода для чтения HTTP-запроса и создания объекта Request
     private Request readRequest(Socket clientSocket) {
-        // Реализация чтения запроса (как текст запроса),
-        // создание и возврат объекта Request
-        return new Request(); // Заглушка
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
+            String requestLine = reader.readLine();
+            if (requestLine == null || requestLine.isEmpty()) {
+                return null; // Пустой запрос
+            }
+
+            // Обработаем первую строку запроса
+            String[] parts = requestLine.split(" ");
+            String method = parts[0];
+            String pathWithQuery = parts[1];
+            String protocol = parts[2];
+
+            String body = ""; // Хранит тело запроса
+
+            Map<String, String> headers = new HashMap<>();
+            String line;
+            while (!(line = reader.readLine()).isEmpty()) {
+                String[] headerParts = line.split(": ");
+                if (headerParts.length == 2) {
+                    headers.put(headerParts[0], headerParts[1]);
+                }
+            }
+
+            // Если метод POST, читаем тело запроса
+            if (method.equals("POST")) {
+                body = reader.lines().collect(Collectors.joining("\n"));
+            }
+
+            // Создаем объект Request
+            return new Request(method, pathWithQuery, headers, body);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null; // Ошибка при чтении запроса
+        }
     }
 }
